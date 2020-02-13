@@ -1,3 +1,4 @@
+//This class helps to extract the TMVA features
 #define TMVAVariables_cxx
 #include "TMVAVariables.h"
 #include <TH2.h>

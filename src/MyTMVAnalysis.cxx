@@ -1,4 +1,6 @@
-//Class to do regression
+//Class to compare several TMVA algorithms
+//author Andres Ramirez (andres.ramirez.morales@cern.ch)
+
 #ifndef MYTMVANALYSIS_CXX
 #define MYTMVANALYSIS_CXX
 
@@ -7,7 +9,6 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
-
 
 
 
@@ -21,41 +22,31 @@ MyTMVAnalysis::~MyTMVAnalysis(){}
 void MyTMVAnalysis::initialize(){
 
   TMVA::Tools::Instance();
-
-  TString option="BDT";
-  bool important=false;
-  bool doDNN = true;
-
-  m_inputFile_s   = new TFile("/u/user/andres/atlas/run/samples/TMVAVariables_wminmunu.root");
-  m_inputFile_b1  = new TFile("/u/user/andres/atlas/run/samples/TMVAVariables_zmumu.root");
-  m_inputFile_b2  = new TFile("/u/user/andres/atlas/run/samples/TMVAVariables_wwplnumqq.root");
-  m_inputFile_b3  = new TFile("/u/user/andres/atlas/run/samples/TMVAVariables_zzllll.root");
-  m_inputFile_b4  = new TFile("/u/user/andres/atlas/run/samples/TMVAVariables_ttbar.root");
   
-  //Declare the factory
+  //input files
+  m_inputFile_s   = new TFile("/home/andrex/PostDoc/FirstCode/atlas/run/samples/TMVAVariables_wminmunu.root");
+  m_inputFile_b1  = new TFile("/home/andrex/PostDoc/FirstCode/atlas/run/samples/TMVAVariables_zmumu.root");
+  m_inputFile_b2  = new TFile("/home/andrex/PostDoc/FirstCode/atlas/run/samples/TMVAVariables_wwplnumqq.root");
+  m_inputFile_b3  = new TFile("/home/andrex/PostDoc/FirstCode/atlas/run/samples/TMVAVariables_zzllll.root");
+  m_inputFile_b4  = new TFile("/home/andrex/PostDoc/FirstCode/atlas/run/samples/TMVAVariables_ttbar.root");
 
+  //output
   m_outputFile = new TFile("./TMVAOutputBDT_ATLAS.root", "RECREATE");
-  
-  if(option=="reg")//not necessary for variable importance
-    m_factory = new TMVA::Factory("TMVARegression", m_outputFile,
-				  "!V:!Silent:Color:DrawProgressBar:AnalysisType=Regression" );
-  if(option!="reg")
-    m_factory = new TMVA::Factory("TMVAClassification", m_outputFile,
-				  "!V:ROC:!Correlations:!Silent:Color:!DrawProgressBar:AnalysisType=Classification" );
 
+  //Declare the factory
+  m_factory = new TMVA::Factory("TMVAClassification", m_outputFile,
+				  "!V:ROC:!Correlations:!Silent:Color:!DrawProgressBar:AnalysisType=Classification" );
   //Declare the data loader 
   m_loader = new TMVA::DataLoader("dataset");  
 
   //Add the feature variables, names reference branches in inputFile ttree
   m_loader->AddVariable("muon_pt");
   m_loader->AddVariable("met");
-  m_loader->AddVariable("muon_e");
+  //m_loader->AddVariable("muon_e");
   m_loader->AddVariable("deltaPhi");
   m_loader->AddVariable("mwt");
-  
-  if(option=="reg")
-    m_loader->AddTarget( "target := var2+var3" ); // define the target for the regress
 
+  
   //Setup the data set
   TTree *tsignal, *tbackground1, *tbackground2, *tbackground3, *tbackground4;
   m_inputFile_s->GetObject("nominal", tsignal);
@@ -65,25 +56,17 @@ void MyTMVAnalysis::initialize(){
   m_inputFile_b4->GetObject("nominal", tbackground4);
   
   TCut mycuts = ""; // e.g. TCut mycuts = "abs(var1)<0.5";
-  TCut mycutb = ""; // e.g. TCut mycuts = "abs(var1)<0.5";
+  TCut mycutb = ""; // e.g. TCut mycuts = "abs(var1)<0.5"; 
 
-
-  if(option=="reg"){
-    m_loader->AddRegressionTree(tsignal, 1.);  // link the TTree to the loader, weight for each event  = 1
-    m_loader->PrepareTrainingAndTestTree(mycuts,
-					 "nTrain_Regression=1000:nTest_Regression=1000:SplitMode=Random:NormMode=NumEvents:!V" );
-  }
-
-
-  if(option!="reg"){
-    m_loader->AddSignalTree(tsignal, 1.);            //signal weight = 1
-    m_loader->AddBackgroundTree (tbackground1, 1.);  //background weight = 1 
-    m_loader->AddBackgroundTree (tbackground2, 1.);  //background weight = 1 
-    m_loader->AddBackgroundTree (tbackground3, 1.);  //background weight = 1 
-    m_loader->AddBackgroundTree (tbackground4, 1.);  //background weight = 1 
-    m_loader->PrepareTrainingAndTestTree(mycuts, mycutb,
-					 "nTrain_Signal=10000:nTrain_Background=10000:nTest_Signal=5000:nTest_Background=5000:SplitMode=Random:NormMode=NumEvents:!V" );
-  }
+  //add trees
+  m_loader->AddSignalTree(tsignal, 1.);            //signal weight = 1
+  m_loader->AddBackgroundTree (tbackground1, 1.);  //background weight = 1 
+  m_loader->AddBackgroundTree (tbackground2, 1.);  //background weight = 1 
+  m_loader->AddBackgroundTree (tbackground3, 1.);  //background weight = 1 
+  m_loader->AddBackgroundTree (tbackground4, 1.);  //background weight = 1 
+  m_loader->PrepareTrainingAndTestTree(mycuts, mycutb,
+				       //"nTrain_Signal=1000:nTrain_Background=1000:nTest_Signal=500:nTest_Background=500:SplitMode=Random:NormMode=NumEvents:!V" );
+				       "nTrain_Signal=10000:nTrain_Background=10000:nTest_Signal=5000:nTest_Background=5000:SplitMode=Random:NormMode=NumEvents:!V" );
 
   return;
 }  
@@ -105,32 +88,38 @@ void MyTMVAnalysis::MVAMethods(){
     m_vi->Evaluate();
   }
   
-      
-  //Book the regression method
-
-  //Book the MVA method
-  //Boosted Decision Trees
-  m_factory->BookMethod(/*&*/m_loader,TMVA::Types::kBDT, "BDTG",
-  			TString("!H:!V:NTrees=64::BoostType=Grad:Shrinkage=0.3:nCuts=20:MaxDepth=4:")+
-  			TString("RegressionLossFunctionBDTG=AbsoluteDeviation"));
+ 
+  // //Book the MVA method
+  // //Boosted Decision Trees
+  // m_factory->BookMethod(/*&*/m_loader,TMVA::Types::kBDT, "BDTG",
+  // 			TString("!H:!V:NTrees=64::BoostType=Grad:Shrinkage=0.3:nCuts=20:MaxDepth=4:")+
+  // 			TString("RegressionLossFunctionBDTG=AbsoluteDeviation"));
   
   //Boosted Decision Trees
   m_factory->BookMethod(m_loader,TMVA::Types::kBDT, "BDT",
-  		     "!V:NTrees=200:MinNodeSize=2.5%:MaxDepth=2:BoostType=AdaBoost:AdaBoostBeta=0.5:UseBaggedBoost:BaggedSampleFraction=0.5:SeparationType=GiniIndex:nCuts=20" );
+  		     "!V:NTrees=100:MinNodeSize=5%:MaxDepth=4:BoostType=AdaBoost:AdaBoostBeta=0.15:SeparationType=GiniIndex:nCuts=100" );
+  //  		     "!V:NTrees=200:MinNodeSize=2.5%:MaxDepth=2:BoostType=AdaBoost:AdaBoostBeta=0.5:UseBaggedBoost:BaggedSampleFraction=0.5:SeparationType=GiniIndex:nCuts=20" );
   
-  //Multi-Layer Perceptron (Neural Network)
-  m_factory->BookMethod(m_loader, TMVA::Types::kMLP, "MLP",
-  		     "!H:!V:NeuronType=tanh:VarTransform=N:NCycles=100:HiddenLayers=N+5:TestRate=5:!UseRegulator" );
+  // //Multi-Layer Perceptron (Neural Network)
+  // m_factory->BookMethod(m_loader, TMVA::Types::kMLP, "MLP",
+  // 		     "!H:!V:NeuronType=tanh:VarTransform=N:NCycles=100:HiddenLayers=N+5:TestRate=5:!UseRegulator" );
 
   // Support Vector Machine
-  m_factory->BookMethod( m_loader, TMVA::Types::kSVM, "SVM", "Gamma=0.25:Tol=0.001:VarTransform=Norm" );
+  m_factory->BookMethod( m_loader, TMVA::Types::kSVM, "SVM_RBF", "Kernel=RBF:Gamma=0.25:Tol=0.001:VarTransform=Norm" );
+  m_factory->BookMethod( m_loader, TMVA::Types::kSVM, "SVM_MG",  "Kernel=MultiGauss:GammaList=0.25,0.25,0.25,0.25:Tol=0.001:VarTransform=Norm" );//MultiGauss kernel
+  m_factory->BookMethod( m_loader, TMVA::Types::kSVM, "SVM_Poly","Kernel=Polynomial:Theta=0.1:Order=2:Tol=0.001:VarTransform=Norm" );//Polynomial kernel
+  
+  m_factory->BookMethod( m_loader, TMVA::Types::kSVM, "SVM_prod_polRBF","Kernel=Prod:KernelList=RBF*Polynomial:Gamma=0.1:Theta=1:Order=1:Tol=0.001:VarTransform=Norm" );//prod
+  m_factory->BookMethod( m_loader, TMVA::Types::kSVM, "SVM_sum_polRBF", "Kernel=Sum:KernelList=RBF+Polynomial:Gamma=0.1:Theta=1:Order=1:Tol=0.001:VarTransform=Norm" );//sum
+  m_factory->BookMethod( m_loader, TMVA::Types::kSVM, "SVM_prod_mgRBF", "Kernel=Prod:KernelList=RBF*MultiGauss:Gamma=0.25:GammaList=0.1,0.2:Tol=0.001:VarTransform=Norm" );//prod
+  m_factory->BookMethod( m_loader, TMVA::Types::kSVM, "SVM_sum_mgRBF",  "Kernel=Sum:KernelList=RBF+MultiGauss:Gamma=0.25:GammaList=0.1,0.2:Tol=0.001:VarTransform=Norm" );//prod
 
 
   //Deep Neural Networks
-  configDNN();
-  // Multi-core CPU implementation.
-  TString cpuOptions = dnnOptions + ":Architecture=CPU";
-  //m_factory->BookMethod(m_loader, TMVA::Types::kDNN, "DNN_CPU", cpuOptions);
+  // configDNN();
+  // // Multi-core CPU implementation.
+  // TString cpuOptions = dnnOptions + ":Architecture=CPU";
+  // m_factory->BookMethod(m_loader, TMVA::Types::kDNN, "DNN_CPU", cpuOptions);
 
   // Cuda implementation.
   // TString gpuOptions = dnnOptions + ":Architecture=GPU";
@@ -164,22 +153,11 @@ void MyTMVAnalysis::finalize(){
   
   //Gather and plot the results
   bool doTMVA = true;
-  bool doRegression = false;
-  if(doRegression){
-    m_outputFile->Close();
-    auto resultsFile = TFile::Open("TMVAOutputBDT.root");
-    auto resultsTree = resultsFile->Get("dataset/TestTree"); 
-    TCanvas c;
-    resultsTree->Draw("BDTG-target"); // BDTG is the predicted value, target is the true value
-    c.Print("./Plots/regression.pdf");
-  }
-
   if(doTMVA){
     //Plot ROC Curve
     auto c1 = m_factory->GetROCCurve(/*&*/m_loader);
     c1->Print("./Plots/dataLoader.pdf");
     m_outputFile->Close();
-
   }
 
   //variable importance results
@@ -191,7 +169,6 @@ void MyTMVAnalysis::finalize(){
     plot->Print("./Plots/VariableImportance.pdf");
   }
   
-
   return;
 }
 

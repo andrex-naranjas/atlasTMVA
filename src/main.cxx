@@ -13,8 +13,8 @@
 int main(int argc, char** argv){
 //int main(){
 
-  TMVAVariables *variables = new TMVAVariables("wwplnumqq");
-  variables->Loop();
+  // TMVAVariables *variables = new TMVAVariables("wwplnumqq");
+  // variables->Loop();
   
   MyTMVAnalysis *tmva = new MyTMVAnalysis();
   tmva->initialize();
