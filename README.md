@@ -6,9 +6,9 @@ Author:<br />
 Andres Ramirez-Morales (andres.ramirez.morales@cern.ch)<br />
 
 
-### Usage:
+## Usage:
 
-# Initial package setup<br />
+### Initial package setup<br />
 Pick a working directory somewhere you like<br />
 - Clone the repository (git clone ...)
 cd <br />
@@ -19,3 +19,5 @@ make<br />
 make clean<br />
 make obj<br />
 make<br />
+
+- Note: ROOT data analysis framework must be installed in your machine
